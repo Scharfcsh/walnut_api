@@ -1,0 +1,105 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+
+# Virtual environments
+venv/
+.envrc
+.python-version
+
+# Environment files (keep secrets out of VCS)
+.env
+.env.*
+
+# Logs
+*.log
+logs/
+celerybeat-schedule
+celerybeat.pid
+
+# Coverage / test artifacts
+.coverage
+htmlcov/
+.pytest_cache/
+.cache/
+
+# Build & packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# IDE / editor
+.vscode/
+.idea/
+
+# SQLite / local DBs
+*.sqlite
+*.sqlite3
+walnut.db
+
+# Node (if any frontend)
+node_modules/
+
+# Docker
+*.pid
+docker-compose.override.yml
+
+# Misc
+.DS_Store
+Thumbs.db
+```// filepath: /home/ams/DATA/Projects/walnut/.gitignore
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+
+# Virtual environments
+venv/
+.envrc
+.python-version
+
+# Environment files (keep secrets out of VCS)
+.env
+
+# Logs
+*.log
+logs/
+celerybeat-schedule
+celerybeat.pid
+
+# Coverage / test artifacts
+.coverage
+htmlcov/
+.pytest_cache/
+.cache/
+
+# Build & packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# IDE / editor
+.vscode/
+.idea/
+
+# SQLite / local DBs
+*.sqlite
+*.sqlite3
+walnut.db
+
+# Node (if any frontend)
+node_modules/
+
+# Docker
+*.pid
+docker-compose.override.yml
+
+# Misc
+.DS_Store
