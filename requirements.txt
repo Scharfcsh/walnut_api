@@ -16,7 +16,6 @@ greenlet==3.3.0
 h11==0.16.0
 idna==3.11
 kombu==5.6.1
-logging==0.4.9.6
 packaging==25.0
 prompt_toolkit==3.0.52
 psycopg2-binary==2.9.11
