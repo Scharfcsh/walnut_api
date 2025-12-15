@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, BackgroundTasks
+from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from .db import SessionLocal, engine
@@ -7,10 +7,19 @@ from .schema import TransactionWebhook
 from .celery import celery_app
 from datetime import datetime, timezone
 from .config import settings
+import redis
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title=settings.app_name)
+
+redis_client = redis.Redis.from_url(settings.redis_url)
+IDEMPOTENCY_TTL = 3600
+
 
 def get_db():
     db = SessionLocal()
@@ -60,44 +69,36 @@ def health():
 
 #     return {"message": "Transaction received"}
 
-
 @app.post("/v1/webhooks/transactions", status_code=202)
-def webhook(
-    payload: TransactionWebhook,
-    background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db),
-):
-    # existing = (
-    #     db.query(Transaction)
-    #     .filter(Transaction.transaction_id == payload.transaction_id)
-    #     .first()
-    # )
-    # if existing:
-    #     return {"message": "Transaction already exists"}
-
+def webhook(payload: TransactionWebhook):
     try:
-        txn = Transaction(
-            transaction_id=payload.transaction_id,
-            source_account=payload.source_account,
-            destination_account=payload.destination_account,
-            amount=payload.amount,
-            currency=payload.currency,
-            status="PROCESSING",
-        )
-        db.add(txn)
-        db.commit()
+        key = f"txn:{payload.transaction_id}"
 
-        background_tasks.add_task(
-            celery_app.send_task,
+        # Use Redis for idempotency check
+        inserted = redis_client.set(
+            key,
+            "1",
+            nx=True,
+            ex=IDEMPOTENCY_TTL,  # Use the TTL constant
+        )
+
+        if not inserted:
+            # logger.info("Duplicate transaction received: %s", payload.transaction_id)
+            return {"message": "Transaction already exists"}
+
+        # Enqueue for background processing immediately
+        celery_app.send_task(
             "app.tasks.process_transaction",
-            args=[payload.transaction_id],
+            args=[payload.model_dump()],
         )
 
-    except IntegrityError:
-        db.rollback()
-        return {"message": "Transaction already exists"}
+        # logger.info("Transaction %s queued for processing", payload.transaction_id)
+        return {"message": "Transaction received"}
 
-    return {"message": "Transaction received"}
+    except Exception as e:
+        # logger.error("Error processing webhook: %s", str(e))
+        # raise HTTPException(status_code=202, detail="Internal server error")
+        return {"message": "Transaction received with error"}
 
 
 @app.get("/v1/transactions/{transaction_id}")
