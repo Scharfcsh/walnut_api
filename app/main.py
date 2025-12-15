@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, BackgroundTasks
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from .db import SessionLocal, engine
@@ -26,14 +26,54 @@ def health():
         "current_time": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
     }
 
+# @app.post("/v1/webhooks/transactions", status_code=202)
+# def webhook(payload: TransactionWebhook, db: Session = Depends(get_db)):
+#     # If a transaction with the same id already exists, do nothing and return 202
+#     existing = db.query(Transaction)\
+#                  .filter(Transaction.transaction_id == payload.transaction_id)\
+#                  .first()
+#     if existing:
+#         return {"message": "Transaction already exists"}
+
+#     try:
+#         txn = Transaction(
+#             transaction_id=payload.transaction_id,
+#             source_account=payload.source_account,
+#             destination_account=payload.destination_account,
+#             amount=payload.amount,
+#             currency=payload.currency,
+#             status="PROCESSING",
+#         )
+#         db.add(txn)
+#         db.commit()
+
+#         # enqueue ONLY on first insert
+#         celery_app.send_task(
+#             "app.tasks.process_transaction",
+#             args=[payload.transaction_id]
+#         )
+
+#     except IntegrityError:
+#         db.rollback()
+#         # On integrity error, do nothing further per requirements and return 202
+#         return {"message": "Transaction already exists"}
+
+#     return {"message": "Transaction received"}
+
+
 @app.post("/v1/webhooks/transactions", status_code=202)
-def webhook(payload: TransactionWebhook, db: Session = Depends(get_db)):
-    # If a transaction with the same id already exists, do nothing and return 202
-    existing = db.query(Transaction)\
-                 .filter(Transaction.transaction_id == payload.transaction_id)\
-                 .first()
-    if existing:
-        return {"message": "Transaction already exists"}
+def webhook(
+    payload: TransactionWebhook,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+):
+    # existing = (
+    #     db.query(Transaction)
+    #     .filter(Transaction.transaction_id == payload.transaction_id)
+    #     .first()
+    # )
+    # if existing:
+    #     return {"message": "Transaction already exists"}
 
     try:
         txn = Transaction(
@@ -47,18 +87,18 @@ def webhook(payload: TransactionWebhook, db: Session = Depends(get_db)):
         db.add(txn)
         db.commit()
 
-        # enqueue ONLY on first insert
-        celery_app.send_task(
+        background_tasks.add_task(
+            celery_app.send_task,
             "app.tasks.process_transaction",
-            args=[payload.transaction_id]
+            args=[payload.transaction_id],
         )
 
     except IntegrityError:
         db.rollback()
-        # On integrity error, do nothing further per requirements and return 202
         return {"message": "Transaction already exists"}
 
     return {"message": "Transaction received"}
+
 
 @app.get("/v1/transactions/{transaction_id}")
 def get_transaction(transaction_id: str, db: Session = Depends(get_db)):
