@@ -74,19 +74,18 @@ def webhook(payload: TransactionWebhook):
     try:
         key = f"txn:{payload.transaction_id}"
 
-        # Use Redis for idempotency check
+    
         inserted = redis_client.set(
             key,
             "1",
             nx=True,
-            ex=IDEMPOTENCY_TTL,  # Use the TTL constant
+            ex=IDEMPOTENCY_TTL,  
         )
 
         if not inserted:
             # logger.info("Duplicate transaction received: %s", payload.transaction_id)
             return {"message": "Transaction already exists"}
 
-        # Enqueue for background processing immediately
         celery_app.send_task(
             "app.tasks.process_transaction",
             args=[payload.model_dump()],
@@ -98,25 +97,33 @@ def webhook(payload: TransactionWebhook):
     except Exception as e:
         # logger.error("Error processing webhook: %s", str(e))
         # raise HTTPException(status_code=202, detail="Internal server error")
-        return {"message": "Transaction received with error"}
+        return {"message": "Transaction received but error"}
 
 
 @app.get("/v1/transactions/{transaction_id}")
 def get_transaction(transaction_id: str, db: Session = Depends(get_db)):
-    txn = db.query(Transaction)\
-            .filter(Transaction.transaction_id == transaction_id)\
-            .first()
+    # Always return 2XX, provide informative messages in body
+    if not transaction_id or not transaction_id.strip():
+        return {"message": "Invalid transaction_id", "transaction_id": transaction_id}
 
-    if not txn:
-        return {"error": "Not found"}
+    try:
+        txn = db.query(Transaction)\
+                .filter(Transaction.transaction_id == transaction_id)\
+                .first()
 
-    return {
-        "transaction_id": txn.transaction_id,
-        "source_account": txn.source_account,
-        "destination_account": txn.destination_account,
-        "amount": float(txn.amount) if txn.amount is not None else None,
-        "currency": txn.currency,
-        "status": txn.status.value if hasattr(txn.status, 'value') else txn.status,
-        "created_at": txn.created_at.isoformat().replace("+00:00", "Z") if txn.created_at else None,
-        "processed_at": txn.processed_at.isoformat().replace("+00:00", "Z") if txn.processed_at else None,
-    }
+        if not txn:
+            return {"message": "Transaction not found", "transaction_id": transaction_id}
+
+        return {
+            "transaction_id": txn.transaction_id,
+            "source_account": txn.source_account,
+            "destination_account": txn.destination_account,
+            "amount": float(txn.amount) if txn.amount is not None else None,
+            "currency": txn.currency,
+            "status": txn.status.value if hasattr(txn.status, 'value') else txn.status,
+            "created_at": txn.created_at.isoformat().replace("+00:00", "Z") if txn.created_at else None,
+            "processed_at": txn.processed_at.isoformat().replace("+00:00", "Z") if txn.processed_at else None,
+        }
+    except Exception as e:
+        logger.exception("Error fetching transaction %s: %s", transaction_id, str(e))
+        return {"message": "Internal server error", "transaction_id": transaction_id}
