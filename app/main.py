@@ -114,7 +114,7 @@ def get_transaction(transaction_id: str, db: Session = Depends(get_db)):
         if not txn:
             return {"message": "Transaction not found", "transaction_id": transaction_id}
 
-        return {
+        return [{
             "transaction_id": txn.transaction_id,
             "source_account": txn.source_account,
             "destination_account": txn.destination_account,
@@ -123,7 +123,7 @@ def get_transaction(transaction_id: str, db: Session = Depends(get_db)):
             "status": txn.status.value if hasattr(txn.status, 'value') else txn.status,
             "created_at": txn.created_at.isoformat().replace("+00:00", "Z") if txn.created_at else None,
             "processed_at": txn.processed_at.isoformat().replace("+00:00", "Z") if txn.processed_at else None,
-        }
+        }]
     except Exception as e:
         logger.exception("Error fetching transaction %s: %s", transaction_id, str(e))
         return {"message": "Internal server error", "transaction_id": transaction_id}
