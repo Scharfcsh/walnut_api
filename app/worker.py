@@ -24,7 +24,6 @@ def process_transaction(self, payload: dict):
     db: Session = SessionLocal()
 
     try:
-        # 2️⃣ If already processed, exit
         txn = (
             db.query(Transaction)
             .filter(Transaction.transaction_id == payload["transaction_id"])
@@ -37,7 +36,6 @@ def process_transaction(self, payload: dict):
             )
             return
 
-        # 3️⃣ If already processed, exit
         if txn.status == "PROCESSED":
             return
 

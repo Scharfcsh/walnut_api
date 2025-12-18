@@ -72,19 +72,25 @@ def health():
 @app.post("/v1/webhooks/transactions", status_code=202)
 def webhook(payload: TransactionWebhook , db: Session = Depends(get_db)):
     try:
-        key = f"txn:{payload.transaction_id}"
+
+        existing = db.query(Transaction)\
+                 .filter(Transaction.transaction_id == payload.transaction_id)\
+                 .first()
+        if existing:
+            return {"message": "Transaction already exists"}
+        # key = f"txn:{payload.transaction_id}"
 
     
-        inserted = redis_client.set(
-            key,
-            "1",
-            nx=True,
-            ex=IDEMPOTENCY_TTL,  
-        )
+        # inserted = redis_client.set(
+        #     key,
+        #     "1",
+        #     nx=True,
+        #     ex=IDEMPOTENCY_TTL,  
+        # )
 
-        if not inserted:
-            # logger.info("Duplicate transaction received: %s", payload.transaction_id)
-            return {"message": "Transaction already exists"}
+        # if not inserted:
+        #     # logger.info("Duplicate transaction received: %s", payload.transaction_id)
+        #     return {"message": "Transaction already exists"}
         
 
         txn = Transaction(
