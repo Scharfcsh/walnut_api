@@ -25,7 +25,20 @@ def process_transaction(self, payload: dict):
 
     try:
         # 2️⃣ If already processed, exit
-        if not txn or txn.status == "PROCESSED":
+        txn = (
+            db.query(Transaction)
+            .filter(Transaction.transaction_id == payload["transaction_id"])
+            .first()
+        )
+        if not txn:
+            logger.warning(
+                "Transaction %s not found, skipping",
+                payload["transaction_id"],
+            )
+            return
+
+        # 3️⃣ If already processed, exit
+        if txn.status == "PROCESSED":
             return
 
         db.expunge(txn)   # detach object
