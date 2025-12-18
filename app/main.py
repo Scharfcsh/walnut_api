@@ -70,7 +70,7 @@ def health():
 #     return {"message": "Transaction received"}
 
 @app.post("/v1/webhooks/transactions", status_code=202)
-def webhook(payload: TransactionWebhook):
+def webhook(payload: TransactionWebhook , db: Session = Depends(get_db)):
     try:
         key = f"txn:{payload.transaction_id}"
 
@@ -85,6 +85,18 @@ def webhook(payload: TransactionWebhook):
         if not inserted:
             # logger.info("Duplicate transaction received: %s", payload.transaction_id)
             return {"message": "Transaction already exists"}
+        
+
+        txn = Transaction(
+            transaction_id=payload.transaction_id,
+            source_account=payload.source_account,
+            destination_account=payload.destination_account,
+            amount=payload.amount,
+            currency=payload.currency,
+            status="PROCESSING",
+        )
+        db.add(txn)
+        db.commit()
 
         celery_app.send_task(
             "app.tasks.process_transaction",

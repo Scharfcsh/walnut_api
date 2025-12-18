@@ -24,27 +24,6 @@ def process_transaction(self, payload: dict):
     db: Session = SessionLocal()
 
     try:
-        txn = Transaction(
-            transaction_id=payload["transaction_id"],
-            source_account=payload["source_account"],
-            destination_account=payload["destination_account"],
-            amount=payload["amount"],
-            currency=payload["currency"],
-            status="PROCESSING",
-        )
-        db.add(txn)
-        db.commit()
-
-    except IntegrityError:
-        # Already exists → expected in retries
-        db.rollback()
-        txn = (
-            db.query(Transaction)
-            .filter(Transaction.transaction_id == payload["transaction_id"])
-            .first()
-        )
-
-    try:
         # 2️⃣ If already processed, exit
         if not txn or txn.status == "PROCESSED":
             return
@@ -67,7 +46,7 @@ def process_transaction(self, payload: dict):
             txn.processed_at = datetime.now(timezone.utc)
             db.commit()
 
-        # logger.info("Transaction %s processed", payload["transaction_id"])
+        logger.info("Transaction %s processed", payload["transaction_id"])
 
     except Exception as e:
         # logger.error("Error processing transaction %s: %s", payload["transaction_id"], str(e))
