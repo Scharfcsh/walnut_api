@@ -116,7 +116,7 @@ def webhook(payload: TransactionWebhook , db: Session = Depends(get_db)):
 def get_transaction(transaction_id: str, db: Session = Depends(get_db)):
     # Always return 2XX, provide informative messages in body
     if not transaction_id or not transaction_id.strip():
-        return {"message": "Invalid transaction_id", "transaction_id": transaction_id}
+        return [{"message": "Invalid transaction_id", "transaction_id": transaction_id}]
 
     try:
         txn = db.query(Transaction)\
@@ -124,7 +124,7 @@ def get_transaction(transaction_id: str, db: Session = Depends(get_db)):
                 .first()
 
         if not txn:
-            return {"message": "Transaction not found", "transaction_id": transaction_id}
+            return [{"message": "Transaction not found", "transaction_id": transaction_id}]
 
         return [{
             "transaction_id": txn.transaction_id,
@@ -138,4 +138,4 @@ def get_transaction(transaction_id: str, db: Session = Depends(get_db)):
         }]
     except Exception as e:
         logger.exception("Error fetching transaction %s: %s", transaction_id, str(e))
-        return {"message": "Internal server error", "transaction_id": transaction_id}
+        return [{"message": "Internal server error", "transaction_id": transaction_id}]
